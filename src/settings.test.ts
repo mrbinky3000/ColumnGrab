@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from "./settings";
+import { DEFAULT_SETTINGS, isModifier, loadSettings, saveSettings } from "./settings";
 
 const get = vi.fn();
 const set = vi.fn();
@@ -25,6 +25,33 @@ describe("loadSettings", () => {
   it("fills in defaults for keys storage didn't return", async () => {
     get.mockResolvedValue({ trimEmpty: true });
     await expect(loadSettings()).resolves.toEqual({ ...DEFAULT_SETTINGS, trimEmpty: true });
+  });
+
+  it.each(["constructor", "__proto__", "toString", "ctrl", "", 1, null])(
+    "replaces an invalid modifier %j with the default",
+    async (modifier) => {
+      get.mockResolvedValue({ modifier, trimEmpty: true });
+      await expect(loadSettings()).resolves.toEqual({ ...DEFAULT_SETTINGS, trimEmpty: true });
+    },
+  );
+
+  it.each(["true", 1, null])("replaces a non-boolean trimEmpty %j with the default", async (trimEmpty) => {
+    get.mockResolvedValue({ modifier: "alt+shift", trimEmpty });
+    await expect(loadSettings()).resolves.toEqual({ ...DEFAULT_SETTINGS, modifier: "alt+shift" });
+  });
+
+  it("drops stored keys that aren't settings", async () => {
+    get.mockResolvedValue({ ...DEFAULT_SETTINGS, extra: "x" });
+    await expect(loadSettings()).resolves.toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe("isModifier", () => {
+  it("accepts the presets and rejects anything else", () => {
+    expect(isModifier("alt")).toBe(true);
+    expect(isModifier("ctrl+alt")).toBe(true);
+    expect(isModifier("constructor")).toBe(false);
+    expect(isModifier(undefined)).toBe(false);
   });
 });
 
