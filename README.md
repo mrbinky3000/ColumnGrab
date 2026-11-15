@@ -24,6 +24,7 @@ Then open `chrome://extensions`, enable **Developer mode**, click **Load unpacke
 |---|---|
 | `npm run build` | Bundle `src/` with esbuild and copy `public/` into `dist/` |
 | `npm run watch` | Rebuild on change (reload the extension in Chrome afterwards) |
+| `npm test` | Run unit tests with Vitest (`test:watch` to re-run on change) |
 | `npm run typecheck` | Type-check the extension and build scripts |
 | `npm run lint` | Lint with oxlint |
 | `npm run format` | Format with oxfmt (`format:check` to verify only) |
