@@ -1,6 +1,6 @@
 # ColumnGrab
 
-<img src="icons/icon128.png" width="64" align="right" alt="">
+<img src="public/icons/icon128.png" width="64" align="right" alt="">
 
 Copy a single HTML table column to your clipboard, one value per line.
 
@@ -9,19 +9,43 @@ Copy a single HTML table column to your clipboard, one value per line.
 
 Handles `rowspan`/`colspan`, iframes, and long tables (auto-scrolls while dragging). The drag key can be changed to Alt+Shift or Ctrl+Alt from the settings popup (click the toolbar icon).
 
-## Install (development)
+## Development
 
-1. Open `chrome://extensions` and enable **Developer mode**.
-2. Click **Load unpacked** and pick this folder.
-3. Open `demo/index.html` to try it. Tabs that were already open need a reload before ColumnGrab works in them.
-
-## Package for the Chrome Web Store
+Requires Node 22.18+ (build scripts are TypeScript run directly by Node).
 
 ```bash
-./package.sh   # → dist/columngrab-<version>.zip
+npm install
+npm run build      # → dist/
 ```
 
-Store listing copy and permission justifications are in [store/LISTING.md](store/LISTING.md). The icon source is in `icons/src/`.
+Then open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and pick the `dist/` folder. Open `demo/index.html` to try it. Tabs that were already open need a reload before ColumnGrab works in them.
+
+| Script | What it does |
+|---|---|
+| `npm run build` | Bundle `src/` with esbuild and copy `public/` into `dist/` |
+| `npm run watch` | Rebuild on change (reload the extension in Chrome afterwards) |
+| `npm run typecheck` | Type-check the extension and build scripts |
+| `npm run lint` | Lint with oxlint |
+| `npm run format` | Format with oxfmt (`format:check` to verify only) |
+| `npm run package` | Build and zip `dist/` into `release/columngrab-<version>.zip` for the Web Store |
+
+## Layout
+
+```
+src/            TypeScript source
+  background.ts   service worker: context menu, clipboard fallback
+  content.ts      drag gesture, highlight, toast, right-click handling
+  table.ts        rowspan/colspan-aware table grid logic
+  offscreen.ts    offscreen document clipboard writer
+  options.ts      settings page
+  messages.ts     typed messages shared between scripts
+  settings.ts     settings schema and storage helpers
+public/         manifest, HTML pages and icons, copied as-is into dist/
+scripts/        build and package scripts
+assets/         icon sources (SVG)
+store/          Chrome Web Store listing copy
+demo/           test page with sample tables
+```
 
 ## Privacy
 

@@ -51,7 +51,7 @@ ColumnGrab runs entirely in your browser. It never collects, stores, or sends pa
 **Data usage disclosure:** collects no user data. Tick nothing; certify all three statements.
 
 **Assets still needed for submission:**
-- Store icon: `icons/icon128.png` ✅
+- Store icon: `public/icons/icon128.png` ✅
 - At least one screenshot, 1280×800 or 640×400 (e.g. the demo page mid-drag)
 - Small promo tile 440×280 (optional but recommended)
 

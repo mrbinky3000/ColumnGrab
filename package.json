@@ -1,0 +1,28 @@
+{
+  "name": "columngrab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome extension that copies a single HTML table column to the clipboard.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "watch": "node scripts/build.ts --watch",
+    "package": "npm run build && node scripts/package.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "typescript": "^7.0.2"
+  }
+}
