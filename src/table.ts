@@ -112,14 +112,21 @@ export function columnXRange(grid: Grid, col: number): XRange | null {
   return { left, right };
 }
 
+/** How many columns a cell covers beyond its first one (0 for a single-column cell). */
+export function extraColumns(grid: Grid, pos: GridPos, cell: Cell): number {
+  let span = 0;
+
+  while (grid[pos.r][pos.c + span + 1] === cell) span++;
+
+  return span;
+}
+
 /**
  * For a colspan cell, pick which spanned column the pointer is over by hit-testing
  * each spanned column's x range. A pointer past the right edge picks the last column.
  */
 export function colOffsetWithin(cell: Cell, grid: Grid, pos: GridPos, x: number): number {
-  let span = 0;
-
-  while (grid[pos.r][pos.c + span + 1] === cell) span++;
+  const span = extraColumns(grid, pos, cell);
 
   if (!span) return 0;
 
@@ -132,6 +139,96 @@ export function colOffsetWithin(cell: Cell, grid: Grid, pos: GridPos, x: number)
   const last = columnXRange(grid, pos.c + span);
 
   return last && x >= last.right ? span : 0;
+}
+
+/** A rectangle of grid slots: rows r0..r1 and columns c0..c1, inclusive. */
+export interface BlockRange {
+  r0: number;
+  r1: number;
+  c0: number;
+  c1: number;
+}
+
+/**
+ * The cells of a rectangular block, one entry per row and column. A merged cell appears
+ * once, in its first slot within the block; its other slots, and missing slots in ragged
+ * rows, are null.
+ */
+export function cellBlock(grid: Grid, { r0, r1, c0, c1 }: BlockRange): (Cell | null)[][] {
+  const out: (Cell | null)[][] = [];
+
+  for (let r = r0; r <= r1; r++) {
+    const row: (Cell | null)[] = [];
+
+    for (let c = c0; c <= c1; c++) {
+      const cell = grid[r]?.[c];
+      const seenAbove = r > r0 && grid[r - 1]?.[c] === cell;
+      const seenLeft = c > c0 && grid[r]?.[c - 1] === cell;
+      row.push(cell && !seenAbove && !seenLeft ? cell : null);
+    }
+
+    out.push(row);
+  }
+
+  return out;
+}
+
+/**
+ * Tab-separated text for a block: one line per row. With `trimEmpty`, rows whose cells are
+ * all empty are dropped; single empty cells stay so the columns keep lining up.
+ */
+export function blockToText(block: (Cell | null)[][], trimEmpty: boolean): string {
+  let rows = block.map((row) => row.map((cell) => (cell ? cellText(cell) : "")));
+
+  if (trimEmpty) rows = rows.filter((row) => row.some((v) => v !== ""));
+
+  return rows.map((row) => row.join("\t")).join("\n");
+}
+
+/** Number of columns in the grid (its widest row). */
+export function columnCount(grid: Grid): number {
+  return Math.max(0, ...grid.map((row) => row.length));
+}
+
+/** Horizontal centre of each column on screen; null where columnXRange has none. */
+export function columnCenters(grid: Grid): (number | null)[] {
+  return Array.from({ length: columnCount(grid) }, (_, c) => {
+    const range = columnXRange(grid, c);
+
+    return range ? (range.left + range.right) / 2 : null;
+  });
+}
+
+/**
+ * The far column of a drag that started in column `anchor`, for a pointer at `x`. A
+ * neighbouring column is included only once the pointer passes its centre, so a little
+ * sideways drift stays on the anchor column. Columns without a known centre are included
+ * along with the next column past them.
+ */
+export function endColumnAt(centers: (number | null)[], anchor: number, x: number): number {
+  let end = anchor;
+
+  for (let c = anchor + 1; c < centers.length; c++) {
+    const center = centers[c];
+
+    if (center === null) continue;
+
+    if (x < center) break;
+    end = c;
+  }
+
+  if (end !== anchor) return end;
+
+  for (let c = anchor - 1; c >= 0; c--) {
+    const center = centers[c];
+
+    if (center === null) continue;
+
+    if (x > center) break;
+    end = c;
+  }
+
+  return end;
 }
 
 export function cellText(cell: Cell): string {

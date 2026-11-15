@@ -2,10 +2,11 @@
 
 <img src="public/icons/icon128.png" width="64" align="right" alt="">
 
-Copy a single HTML table column to your clipboard, one value per line.
+Copy an HTML table column to your clipboard, one value per line, or a block of columns as tab-separated rows.
 
 - **Drag:** hold **Alt** (⌥ Option on Mac) and drag down a column. Release to copy. **Esc** cancels.
-- **Right-click:** right-click a cell → **ColumnGrab → Copy this table column** (with or without header).
+- **Several columns:** while dragging, move sideways past the middle of a neighbouring column to widen the selection; move back to narrow it.
+- **Right-click:** right-click a cell → **ColumnGrab → Copy this table column** (with or without header), or **Copy this whole table**.
 
 Handles `rowspan`/`colspan`, iframes, and long tables (auto-scrolls while dragging). The drag key can be changed to Alt+Shift or Ctrl+Alt from the settings popup (click the toolbar icon).
 

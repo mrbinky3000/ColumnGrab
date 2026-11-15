@@ -15,16 +15,17 @@
 ```
 Grab a whole table column in one move.
 
-Copying a single column out of a web table is usually painful. Drag-selecting grabs the entire row, and pasting it brings along every other column. ColumnGrab copies just the column you want, one value per line, ready to paste into a spreadsheet, a doc, or a code editor.
+Copying a single column out of a web table is usually painful. Drag-selecting grabs the entire row, and pasting it brings along every other column. ColumnGrab copies just the columns you want, ready to paste into a spreadsheet, a doc, or a code editor.
 
 TWO WAYS TO GRAB
 • Drag: hold Alt (Option ⌥ on Mac) and drag down a column. A highlight shows exactly which cells you're taking, and they're copied the moment you let go.
-• Right-click: right-click any cell → ColumnGrab → "Copy this table column", with or without the header.
+• Need more than one column? Keep dragging sideways past the middle of the next column to widen the selection.
+• Right-click: right-click any cell → ColumnGrab → "Copy this table column", with or without the header, or "Copy this whole table".
 
 BUILT FOR REAL-WORLD TABLES
 • Understands merged cells (rowspan/colspan), so you get the column you see on screen.
 • Works inside iframes and on long tables: auto-scrolls while you drag.
-• Clean output: whitespace collapsed, one cell per line, pastes straight into Sheets or Excel as a column.
+• Clean output: whitespace collapsed, one cell per line for a column, tab-separated rows for several columns. Pastes straight into Sheets or Excel.
 • Press Esc mid-drag to cancel.
 
 YOUR CHOICE OF KEY
@@ -36,14 +37,14 @@ ColumnGrab runs entirely in your browser. It never collects, stores, or sends pa
 
 **Single purpose** (dashboard field):
 
-> ColumnGrab copies the contents of a single HTML table column to the clipboard, triggered by a modifier-key drag or a right-click menu item.
+> ColumnGrab copies the contents of HTML table columns (one, several, or the whole table) to the clipboard, triggered by a modifier-key drag or a right-click menu item.
 
 **Permission justifications** (dashboard fields):
 
 | Permission | Justification |
 |---|---|
-| `contextMenus` | Adds the "Copy this table column" items to the right-click menu. |
-| `clipboardWrite` | Writes the copied column text to the clipboard. |
+| `contextMenus` | Adds the "Copy this table column" and "Copy this whole table" items to the right-click menu. |
+| `clipboardWrite` | Writes the copied table text to the clipboard. |
 | `storage` | Saves the user's drag-key and output preferences. |
 | `offscreen` | Fallback clipboard write when a page (e.g. a sandboxed iframe) blocks clipboard access. |
 | Host access (`<all_urls>` content script) | Tables can appear on any website; the script must be present to detect the drag gesture and the right-clicked cell. It reads table text only when the user triggers a copy, and sends nothing over the network. |
@@ -59,6 +60,6 @@ ColumnGrab runs entirely in your browser. It never collects, stores, or sends pa
 
 ## GitHub repo description (350-char limit)
 
-> Chrome extension that copies a single HTML table column to your clipboard. Alt-drag down a column or right-click a cell. Handles rowspan/colspan, iframes, and long tables. Manifest V3, no tracking.
+> Chrome extension that copies HTML table columns to your clipboard. Alt-drag down a column (sideways for several) or right-click a cell. Handles rowspan/colspan, iframes, and long tables. Manifest V3, no tracking.
 
 **Suggested topics:** `chrome-extension` `manifest-v3` `html-table` `clipboard` `productivity` `data-extraction`
