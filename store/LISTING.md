@@ -41,20 +41,29 @@ ColumnGrab runs entirely in your browser. It never collects, stores, or sends pa
 
 **Permission justifications** (dashboard fields):
 
-| Permission | Justification |
-|---|---|
-| `contextMenus` | Adds the "Copy this table column" and "Copy this whole table" items to the right-click menu. |
-| `clipboardWrite` | Writes the copied table text to the clipboard. |
-| `storage` | Saves the user's drag-key and output preferences. |
-| `offscreen` | Fallback clipboard write when a page (e.g. a sandboxed iframe) blocks clipboard access. |
+| Permission                                | Justification                                                                                                                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `contextMenus`                            | Adds the "Copy this table column" and "Copy this whole table" items to the right-click menu.                                                                                                                    |
+| `clipboardWrite`                          | Writes the copied table text to the clipboard.                                                                                                                                                                  |
+| `storage`                                 | Saves the user's drag-key and output preferences.                                                                                                                                                               |
+| `offscreen`                               | Fallback clipboard write when a page (e.g. a sandboxed iframe) blocks clipboard access.                                                                                                                         |
 | Host access (`<all_urls>` content script) | Tables can appear on any website; the script must be present to detect the drag gesture and the right-clicked cell. It reads table text only when the user triggers a copy, and sends nothing over the network. |
 
 **Data usage disclosure:** collects no user data. Tick nothing; certify all three statements.
 
-**Assets still needed for submission:**
-- Store icon: `public/icons/icon128.png` ✅
-- At least one screenshot, 1280×800 or 640×400 (e.g. the demo page mid-drag)
-- Small promo tile 440×280 (optional but recommended)
+**Graphics** (in `store/images/`, all without transparency, as the store requires):
+
+| Asset                                         | File                                      | Size     |
+| --------------------------------------------- | ----------------------------------------- | -------- |
+| Store icon                                    | `public/icons/icon128.png`                | 128×128  |
+| Screenshot 1: dragging down one column        | `store/images/1-drag-column.png`          | 1280×800 |
+| Screenshot 2: dragging across several columns | `store/images/2-drag-several.png`         | 1280×800 |
+| Screenshot 3: pasted into a spreadsheet       | `store/images/3-paste.png`                | 1280×800 |
+| Screenshot 4: settings                        | `store/images/4-settings.png`             | 1280×800 |
+| Small promo tile                              | `store/images/promo-small-440x280.png`    | 440×280  |
+| Marquee promo tile                            | `store/images/promo-marquee-1400x560.jpg` | 1400×560 |
+
+The screenshots show the real extension running on a mock "Team directory" page with made-up names, and screenshot 3 pastes the actual clipboard contents. Retake them when the UI changes noticeably.
 
 ---
 
