@@ -4,9 +4,11 @@ import {
   cellText,
   colOffsetWithin,
   columnCells,
+  columnXRange,
   findCell,
   headerRowCount,
   locate,
+  singleColumnCell,
   type Cell,
 } from "./table";
 
@@ -236,10 +238,80 @@ describe("colOffsetWithin", () => {
     expect(colOffsetWithin(wide, grid, pos, 250)).toBe(2);
   });
 
+  it("picks the last spanned column when the pointer is past the right edge", () => {
+    const t = table(`<table>
+      <tr><td colspan="2">wide</td></tr>
+      <tr><td>a</td><td>b</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    const [a, b] = Array.from(t.rows[1].cells);
+    setRect(a, 0, 100);
+    setRect(b, 100, 200);
+    const pos = { r: 0, c: 0 };
+    expect(colOffsetWithin(grid[0][0]!, grid, pos, 200)).toBe(1);
+    expect(colOffsetWithin(grid[0][0]!, grid, pos, 350)).toBe(1);
+    expect(colOffsetWithin(grid[0][0]!, grid, pos, -20)).toBe(0);
+  });
+
   it("falls back to the first spanned column when no other row has single-column cells", () => {
     const t = table(`<table><tr><td colspan="2">wide</td></tr></table>`);
     const { grid } = buildGrid(t);
     expect(colOffsetWithin(grid[0][0]!, grid, { r: 0, c: 0 }, 150)).toBe(0);
+  });
+});
+
+// Same shape as the demo's merged table: "Q1" spans Jan+Feb, "30 (merged)" spans Jan+Feb.
+const mergedQuarterTable = () =>
+  table(`<table>
+    <tr><th>Region</th><th colspan="2">Q1</th><th>Q2</th></tr>
+    <tr><th></th><th>Jan</th><th>Feb</th><th>Apr</th></tr>
+    <tr><td rowspan="2">North</td><td>10</td><td>11</td><td>12</td></tr>
+    <tr><td>20</td><td>21</td><td>22</td></tr>
+    <tr><td>South</td><td colspan="2">30 (merged)</td><td>32</td></tr>
+  </table>`);
+
+describe("singleColumnCell", () => {
+  it("skips cells merged into a neighbouring column", () => {
+    const { grid } = buildGrid(mergedQuarterTable());
+    // Row 0 of column 2 is "Q1" (colspan=2), so the first single-column cell is "Feb".
+    expect(cellText(singleColumnCell(grid, 2)!)).toBe("Feb");
+    expect(cellText(singleColumnCell(grid, 1)!)).toBe("Jan");
+  });
+
+  it("accepts a rowspan cell, which still spans one column", () => {
+    const { grid } = buildGrid(mergedQuarterTable());
+    expect(cellText(singleColumnCell(grid, 0)!)).toBe("Region");
+  });
+
+  it("returns null when every cell in the column is merged with a neighbour", () => {
+    const { grid } = buildGrid(table(`<table><tr><td colspan="2">wide</td></tr></table>`));
+    expect(singleColumnCell(grid, 0)).toBeNull();
+  });
+
+  it("returns null for a column past the end", () => {
+    const { grid } = buildGrid(mergedQuarterTable());
+    expect(singleColumnCell(grid, 9)).toBeNull();
+  });
+});
+
+describe("columnXRange", () => {
+  it("uses the column's own cell, not a merged cell that also covers a neighbour", () => {
+    const t = mergedQuarterTable();
+    const { grid } = buildGrid(t);
+    const [, jan, feb] = Array.from(t.rows[1].cells);
+    setRect(jan, 100, 200);
+    setRect(feb, 200, 300);
+    // The merged cells span both columns; they must not widen Feb's range.
+    setRect(t.rows[0].cells[1], 100, 300);
+    setRect(t.rows[4].cells[1], 100, 300);
+    expect(columnXRange(grid, 2)).toEqual({ left: 200, right: 300 });
+    expect(columnXRange(grid, 1)).toEqual({ left: 100, right: 200 });
+  });
+
+  it("returns null when the column has no single-column cell", () => {
+    const { grid } = buildGrid(table(`<table><tr><td colspan="2">wide</td></tr></table>`));
+    expect(columnXRange(grid, 1)).toBeNull();
   });
 });
 

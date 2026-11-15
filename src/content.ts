@@ -1,6 +1,7 @@
 // ColumnGrab content script: modifier-drag selection + context-menu column copy.
 import { requireElement } from "./dom";
 import { isCopyColumnMessage, isCopyResult, type ClipboardFallbackMessage } from "./messages";
+import { outlinePath, type Rect } from "./outline";
 import { DEFAULT_SETTINGS, loadSettings, type Modifier, type Settings } from "./settings";
 import {
   buildGrid,
@@ -12,6 +13,7 @@ import {
   locate,
   type Cell,
   type Grid,
+  type GridPos,
 } from "./table";
 
 declare global {
@@ -24,9 +26,18 @@ interface DragState {
   table: HTMLTableElement;
   rows: HTMLTableRowElement[];
   grid: Grid;
+  /** The cell the drag started on, and its top-left grid position. */
+  startCell: Cell;
+  startPos: GridPos;
+  /**
+   * False while the pointer is still inside a merged start cell: the column then follows
+   * the pointer across the cell's span, and is fixed once the pointer leaves the cell.
+   */
+  colLocked: boolean;
   col: number;
   startRow: number;
   endRow: number;
+  lastX: number;
   lastY: number;
   raf: number;
 }
@@ -124,7 +135,8 @@ function main(): void {
   // ---------- UI (isolated in a shadow root so page CSS can't touch it) ----------
   interface Ui {
     root: ShadowRoot;
-    box: HTMLDivElement;
+    box: SVGElement;
+    outline: SVGElement;
     badge: HTMLDivElement;
     toast: HTMLDivElement;
   }
@@ -138,8 +150,9 @@ function main(): void {
     const root = host.attachShadow({ mode: "closed" });
     root.innerHTML = `
       <style>
-        .box{position:fixed;display:none;box-sizing:border-box;border:2px solid #F59E0B;
-             background:rgba(245,158,11,.18);border-radius:3px;pointer-events:none;}
+        .box{position:fixed;inset:0;width:100%;height:100%;display:none;overflow:visible;
+             pointer-events:none;}
+        .box path{fill:rgba(245,158,11,.18);stroke:#F59E0B;stroke-width:2;stroke-linejoin:round;}
         .badge{position:fixed;display:none;font:600 12px/1 system-ui,sans-serif;color:#1F2937;
                background:#F59E0B;padding:4px 7px;border-radius:10px;pointer-events:none;white-space:nowrap;}
         .toast{position:fixed;right:16px;bottom:16px;font:500 13px/1.3 system-ui,sans-serif;
@@ -149,10 +162,17 @@ function main(): void {
         .toast.show{opacity:1;transform:none;}
         .toast.err{background:#B91C1C;}
       </style>
-      <div class="box"></div><div class="badge"></div><div class="toast"></div>`;
+      <svg class="box"><path></path></svg><div class="badge"></div><div class="toast"></div>`;
     document.documentElement.appendChild(host);
     const q = (sel: string) => requireElement(root, sel, HTMLDivElement);
-    uiState = { root, box: q(".box"), badge: q(".badge"), toast: q(".toast") };
+    const svg = (sel: string) => requireElement(root, sel, SVGElement);
+    uiState = {
+      root,
+      box: svg(".box"),
+      outline: svg(".box path"),
+      badge: q(".badge"),
+      toast: q(".toast"),
+    };
 
     return uiState;
   }
@@ -168,8 +188,12 @@ function main(): void {
     toastTimer = setTimeout(() => el.classList.remove("show"), TOAST_MS);
   }
 
+  /**
+   * Outline the selected cells. Each cell is drawn at its own width, so a merged cell
+   * (colspan) is highlighted in full without covering the neighbouring column's cells.
+   */
   function drawSelection(cells: Cell[]): void {
-    const { box, badge } = ui();
+    const { box, outline, badge } = ui();
 
     if (!cells.length) {
       box.style.display = badge.style.display = "none";
@@ -177,31 +201,15 @@ function main(): void {
       return;
     }
 
-    let top = Infinity;
-    let left = Infinity;
-    let right = -Infinity;
-    let bottom = -Infinity;
-
-    for (const c of cells) {
-      const r = c.getBoundingClientRect();
-      top = Math.min(top, r.top);
-      left = Math.min(left, r.left);
-      right = Math.max(right, r.right);
-      bottom = Math.max(bottom, r.bottom);
-    }
-
-    Object.assign(box.style, {
-      display: "block",
-      top: `${top}px`,
-      left: `${left}px`,
-      width: `${right - left}px`,
-      height: `${bottom - top}px`,
-    });
+    const rects: Rect[] = cells.map((c) => c.getBoundingClientRect());
+    outline.setAttribute("d", outlinePath(rects));
+    box.style.display = "block";
+    const last = rects[rects.length - 1];
     badge.textContent = `${cells.length} cell${cells.length === 1 ? "" : "s"}`;
     Object.assign(badge.style, {
       display: "block",
-      top: `${Math.min(bottom + 4, window.innerHeight - 24)}px`,
-      left: `${Math.max(4, left)}px`,
+      top: `${Math.min(last.bottom + 4, window.innerHeight - 24)}px`,
+      left: `${Math.max(4, last.left)}px`,
     });
   }
 
@@ -228,6 +236,12 @@ function main(): void {
 
   function update(d: DragState): void {
     d.endRow = rowAtY(d, d.lastY);
+
+    if (!d.colLocked) {
+      d.col = d.startPos.c + colOffsetWithin(d.startCell, d.grid, d.startPos, d.lastX);
+      d.colLocked = d.grid[d.endRow]?.[d.startPos.c] !== d.startCell;
+    }
+
     drawSelection(currentCells(d));
   }
 
@@ -262,9 +276,22 @@ function main(): void {
 
     e.preventDefault(); // no text selection, no native drag
     e.stopPropagation();
-    // Use the column under the pointer (matters for colspan cells).
-    const col = pos.c + colOffsetWithin(cell, grid, pos, e.clientX);
-    drag = { table, rows, grid, col, startRow: pos.r, endRow: pos.r, lastY: e.clientY, raf: 0 };
+    // The column under the pointer; for a merged (colspan) cell, update() keeps it in step
+    // with the pointer until the drag leaves the cell.
+    drag = {
+      table,
+      rows,
+      grid,
+      startCell: cell,
+      startPos: pos,
+      colLocked: false,
+      col: pos.c,
+      startRow: pos.r,
+      endRow: pos.r,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      raf: 0,
+    };
     window.getSelection()?.removeAllRanges();
     update(drag);
     drag.raf = requestAnimationFrame(autoScrollLoop);
@@ -278,6 +305,7 @@ function main(): void {
   function onMouseMove(e: MouseEvent): void {
     if (!drag) return;
     e.preventDefault();
+    drag.lastX = e.clientX;
     drag.lastY = e.clientY;
     update(drag);
   }
@@ -305,6 +333,7 @@ function main(): void {
     if (!drag) return;
     e.preventDefault();
     e.stopPropagation();
+    drag.lastX = e.clientX;
     drag.lastY = e.clientY;
     update(drag);
     const cells = currentCells(drag);
