@@ -64,3 +64,25 @@ export function isCopyResult(response: unknown): response is CopyResult {
     (!("error" in response) || response.error === undefined || typeof response.error === "string")
   );
 }
+
+/** The parts of chrome.runtime.MessageSender the sender checks below look at. */
+export interface Sender {
+  id?: string;
+  tab?: unknown;
+}
+
+/**
+ * A message from one of this extension's content scripts: it carries our extension id
+ * and comes from a tab.
+ */
+export function isFromContentScript(sender: Sender, extensionId: string): boolean {
+  return sender.id === extensionId && sender.tab !== undefined;
+}
+
+/**
+ * A message from this extension's own pages or service worker: it carries our extension
+ * id and does not come from a tab, so no content script can send it.
+ */
+export function isFromExtension(sender: Sender, extensionId: string): boolean {
+  return sender.id === extensionId && sender.tab === undefined;
+}

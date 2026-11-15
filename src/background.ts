@@ -2,6 +2,7 @@
 import {
   isClipboardFallbackMessage,
   isCopyResult,
+  isFromContentScript,
   type CopyColumnMessage,
   type CopyResult,
   type CopyTableMessage,
@@ -63,9 +64,9 @@ chrome.action.onClicked.addListener(() => {
 
 // Fallback clipboard path: if the page blocks clipboard access (e.g. a cross-origin iframe
 // without clipboard-write permission), the content script hands the text to us and we copy
-// it from an offscreen document.
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse: (r: CopyResult) => void) => {
-  if (!isClipboardFallbackMessage(msg)) return;
+// it from an offscreen document. Only our own content scripts may ask.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse: (r: CopyResult) => void) => {
+  if (!isClipboardFallbackMessage(msg) || !isFromContentScript(sender, chrome.runtime.id)) return;
   copyViaOffscreen(msg.text)
     .then(() => sendResponse({ ok: true }))
     .catch((cause: unknown) => sendResponse({ ok: false, error: String(cause) }));
