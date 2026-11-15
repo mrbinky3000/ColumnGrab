@@ -1,6 +1,6 @@
 # ColumnGrab
 
-<img src="public/icons/icon128.png" width="64" align="right" alt="">
+![ColumnGrab: copy any table column in one drag. Alt + drag, or right-click any cell.](store/images/promo-marquee-1400x560.jpg)
 
 Copy an HTML table column to your clipboard, one value per line, or a block of columns as tab-separated rows.
 
