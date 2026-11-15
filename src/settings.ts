@@ -1,6 +1,14 @@
 // User preferences, stored in chrome.storage.sync.
 
-export type Modifier = "alt" | "alt+shift" | "ctrl+alt";
+const MODIFIERS = ["alt", "alt+shift", "ctrl+alt"] as const;
+
+export type Modifier = (typeof MODIFIERS)[number];
+
+const MODIFIER_SET: ReadonlySet<string> = new Set(MODIFIERS);
+
+export function isModifier(value: string): value is Modifier {
+  return MODIFIER_SET.has(value);
+}
 
 export interface Settings {
   /** Key combination held while dragging down a column. */
@@ -16,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export async function loadSettings(): Promise<Settings> {
   const stored = await chrome.storage.sync.get<Settings>(DEFAULT_SETTINGS);
+
   return { ...DEFAULT_SETTINGS, ...stored };
 }
 

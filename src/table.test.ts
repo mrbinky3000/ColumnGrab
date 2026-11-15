@@ -14,7 +14,9 @@ import {
 function table(html: string): HTMLTableElement {
   document.body.innerHTML = html;
   const t = document.querySelector("table");
+
   if (!t) throw new Error("no <table> in fixture");
+
   return t;
 }
 
@@ -38,8 +40,9 @@ describe("buildGrid", () => {
         <tr><td>c</td><td>d</td></tr>
       </table>`),
     );
+
     expect(rows).toHaveLength(2);
-    expect(grid.map((row) => texts(row as Cell[]))).toEqual([
+    expect(grid.map((row) => row.map((cell) => (cell ? cellText(cell) : "")))).toEqual([
       ["a", "b"],
       ["c", "d"],
     ]);
@@ -53,6 +56,7 @@ describe("buildGrid", () => {
         <thead><tr><th>head</th></tr></thead>
       </table>`),
     );
+
     expect(grid.map((row) => cellText(row[0]!))).toEqual(["head", "body", "foot"]);
   });
 
@@ -63,6 +67,7 @@ describe("buildGrid", () => {
         <tr><td>b</td></tr>
       </table>`),
     );
+
     expect(grid[0][0]).toBe(grid[1][0]);
     expect(cellText(grid[1][1]!)).toBe("b");
   });
@@ -74,6 +79,7 @@ describe("buildGrid", () => {
         <tr><td>a</td><td>b</td><td>c</td></tr>
       </table>`),
     );
+
     expect(grid[0][0]).toBe(grid[0][1]);
     expect(cellText(grid[0][2]!)).toBe("x");
     expect(grid[0]).toHaveLength(3);
@@ -87,6 +93,7 @@ describe("buildGrid", () => {
         <tr><td>3</td></tr>
       </table>`),
     );
+
     expect(texts(grid.map((row) => row[0]!))).toEqual(["all", "all", "all"]);
     expect(texts(grid.map((row) => row[1]!))).toEqual(["1", "2", "3"]);
   });
@@ -98,6 +105,7 @@ describe("buildGrid", () => {
         <tr><td>c</td></tr>
       </table>`),
     );
+
     expect(grid[1][1]).toBeUndefined();
   });
 
@@ -106,6 +114,7 @@ describe("buildGrid", () => {
       <tr><td>a<table><tr><td>inner</td></tr></table></td></tr>
       <tr><td>b</td></tr>
     </table>`);
+
     expect(buildGrid(outer).rows).toHaveLength(2);
   });
 });
@@ -116,6 +125,7 @@ describe("locate", () => {
       <tr><td>a</td><td rowspan="2" colspan="2">big</td></tr>
       <tr><td>b</td></tr>
     </table>`);
+
     const { grid } = buildGrid(t);
     const big = t.querySelector<Cell>('[rowspan="2"]')!;
     expect(locate(grid, big)).toEqual({ r: 0, c: 1 });
@@ -133,6 +143,7 @@ describe("headerRowCount", () => {
       <thead><tr><th>A</th></tr><tr><th>B</th></tr></thead>
       <tbody><tr><td>1</td></tr></tbody>
     </table>`);
+
     expect(headerRowCount(t, buildGrid(t).rows)).toBe(2);
   });
 
@@ -143,6 +154,7 @@ describe("headerRowCount", () => {
       <tr><td>1</td><td>2</td></tr>
       <tr><th>late</th><th>header</th></tr>
     </table>`);
+
     expect(headerRowCount(t, buildGrid(t).rows)).toBe(2);
   });
 
@@ -151,6 +163,7 @@ describe("headerRowCount", () => {
       <tr><th>Row 1</th><td>1</td></tr>
       <tr><th>Row 2</th><td>2</td></tr>
     </table>`);
+
     expect(headerRowCount(t, buildGrid(t).rows)).toBe(0);
   });
 });
@@ -187,6 +200,7 @@ describe("columnCells", () => {
         <tr><td>d</td><td>e</td></tr>
       </table>`),
     );
+
     expect(texts(columnCells(grid, 1, 0, 2))).toEqual(["b", "e"]);
   });
 
@@ -209,6 +223,7 @@ describe("colOffsetWithin", () => {
       <tr><td colspan="3">wide</td></tr>
       <tr><td>a</td><td>b</td><td>c</td></tr>
     </table>`);
+
     const { grid } = buildGrid(t);
     const [a, b, c] = Array.from(t.rows[1].cells);
     setRect(a, 0, 100);
@@ -234,6 +249,7 @@ describe("cellText", () => {
       Ada
         <b>Lovelace</b>\t
     </td></tr></table>`);
+
     expect(cellText(t.rows[0].cells[0])).toBe("Ada Lovelace");
   });
 

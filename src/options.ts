@@ -1,7 +1,8 @@
-import { loadSettings, saveSettings, type Modifier } from "./settings";
+import { requireElement } from "./dom";
+import { isModifier, loadSettings, saveSettings } from "./settings";
 
-const saved = document.getElementById("saved") as HTMLElement;
-const trimEmpty = document.getElementById("trimEmpty") as HTMLInputElement;
+const saved = requireElement(document, "#saved", HTMLElement);
+const trimEmpty = requireElement(document, "#trimEmpty", HTMLInputElement);
 const modifierRadios = document.querySelectorAll<HTMLInputElement>('input[name="modifier"]');
 let savedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -18,7 +19,9 @@ void loadSettings().then((s) => {
 
 for (const radio of modifierRadios) {
   radio.addEventListener("change", () => {
-    void saveSettings({ modifier: radio.value as Modifier }).then(flashSaved);
+    const modifier = radio.value;
+
+    if (isModifier(modifier)) void saveSettings({ modifier }).then(flashSaved);
   });
 }
 
