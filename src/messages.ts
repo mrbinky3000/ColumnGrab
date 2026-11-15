@@ -9,6 +9,11 @@ export interface CopyColumnMessage {
   includeHeader: boolean;
 }
 
+/** Background → content script: copy the whole table around the last right-clicked cell. */
+export interface CopyTableMessage {
+  type: "columngrab:copy-table";
+}
+
 /** Content script → background: page blocked clipboard access, please copy this for me. */
 export interface ClipboardFallbackMessage {
   type: "columngrab:clipboard-fallback";
@@ -36,6 +41,10 @@ export function isCopyColumnMessage(msg: unknown): msg is CopyColumnMessage {
     "includeHeader" in msg &&
     typeof msg.includeHeader === "boolean"
   );
+}
+
+export function isCopyTableMessage(msg: unknown): msg is CopyTableMessage {
+  return hasType(msg, "columngrab:copy-table");
 }
 
 export function isClipboardFallbackMessage(msg: unknown): msg is ClipboardFallbackMessage {

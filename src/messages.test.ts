@@ -3,6 +3,7 @@ import {
   isClipboardFallbackMessage,
   isCopyColumnMessage,
   isCopyResult,
+  isCopyTableMessage,
   isOffscreenCopyMessage,
 } from "./messages";
 
@@ -65,5 +66,19 @@ describe("isCopyResult", () => {
 
   it.each([null, undefined, true, "ok"])("rejects %j", (value) => {
     expect(isCopyResult(value)).toBe(false);
+  });
+});
+
+describe("isCopyTableMessage", () => {
+  it("accepts a well-formed message", () => {
+    expect(isCopyTableMessage({ type: "columngrab:copy-table" })).toBe(true);
+  });
+
+  it("rejects another message type", () => {
+    expect(isCopyTableMessage({ type: "columngrab:copy-column", includeHeader: true })).toBe(false);
+  });
+
+  it.each(NOT_MESSAGES)("rejects %j", (value) => {
+    expect(isCopyTableMessage(value)).toBe(false);
   });
 });

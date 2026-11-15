@@ -4,11 +4,13 @@ import {
   isCopyResult,
   type CopyColumnMessage,
   type CopyResult,
+  type CopyTableMessage,
   type OffscreenCopyMessage,
 } from "./messages";
 
 const MENU_WITH_HEADER = "columngrab-copy-column";
 const MENU_NO_HEADER = "columngrab-copy-column-no-header";
+const MENU_TABLE = "columngrab-copy-table";
 const { ContextType } = chrome.contextMenus;
 
 const MENU_CONTEXTS: [chrome.contextMenus.ContextType, ...chrome.contextMenus.ContextType[]] = [
@@ -20,7 +22,7 @@ const MENU_CONTEXTS: [chrome.contextMenus.ContextType, ...chrome.contextMenus.Co
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
-    // Two top-level items: Chrome nests them under a "ColumnGrab" submenu automatically.
+    // Several top-level items: Chrome nests them under a "ColumnGrab" submenu automatically.
     chrome.contextMenus.create({
       id: MENU_WITH_HEADER,
       title: "Copy this table column",
@@ -31,18 +33,23 @@ chrome.runtime.onInstalled.addListener(() => {
       title: "Copy this table column (without header)",
       contexts: MENU_CONTEXTS,
     });
+    chrome.contextMenus.create({
+      id: MENU_TABLE,
+      title: "Copy this whole table",
+      contexts: MENU_CONTEXTS,
+    });
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (tab?.id === undefined) return;
 
-  if (info.menuItemId !== MENU_WITH_HEADER && info.menuItemId !== MENU_NO_HEADER) return;
+  let message: CopyColumnMessage | CopyTableMessage;
 
-  const message: CopyColumnMessage = {
-    type: "columngrab:copy-column",
-    includeHeader: info.menuItemId === MENU_WITH_HEADER,
-  };
+  if (info.menuItemId === MENU_TABLE) message = { type: "columngrab:copy-table" };
+  else if (info.menuItemId === MENU_WITH_HEADER || info.menuItemId === MENU_NO_HEADER) {
+    message = { type: "columngrab:copy-column", includeHeader: info.menuItemId === MENU_WITH_HEADER };
+  } else return;
 
   chrome.tabs.sendMessage(tab.id, message, { frameId: info.frameId ?? 0 }).catch(() => {
     // Content script not present (tab was open before install, or a restricted page like chrome://).

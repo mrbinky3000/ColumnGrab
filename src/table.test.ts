@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  blockToText,
   buildGrid,
+  cellBlock,
   cellText,
   colOffsetWithin,
   columnCells,
+  columnCount,
   columnXRange,
+  endColumnAt,
+  extraColumns,
   findCell,
   headerRowCount,
   locate,
@@ -355,5 +360,138 @@ describe("findCell", () => {
 
   it("returns null for a null target", () => {
     expect(findCell(null)).toBeNull();
+  });
+});
+
+/** Text of each slot in a block ("·" for an empty slot), one string per row. */
+const blockTexts = (block: (Cell | null)[][]): string[] =>
+  block.map((row) => row.map((c) => (c ? cellText(c) : "·")).join(" "));
+
+describe("cellBlock", () => {
+  it("returns every cell of a plain table, row by row", () => {
+    const t = table(`<table>
+      <tr><td>a</td><td>b</td><td>c</td></tr>
+      <tr><td>d</td><td>e</td><td>f</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    expect(blockTexts(cellBlock(grid, { r0: 0, r1: 1, c0: 1, c1: 2 }))).toEqual(["b c", "e f"]);
+  });
+
+  it("puts a colspan cell's text in its first slot and leaves the rest empty", () => {
+    const t = table(`<table>
+      <tr><td colspan="2">wide</td><td>x</td></tr>
+      <tr><td>a</td><td>b</td><td>c</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    expect(blockTexts(cellBlock(grid, { r0: 0, r1: 1, c0: 0, c1: 2 }))).toEqual(["wide · x", "a b c"]);
+  });
+
+  it("shows a colspan cell that starts left of the block in the block's first column", () => {
+    const t = table(`<table>
+      <tr><td colspan="2">wide</td><td>x</td></tr>
+      <tr><td>a</td><td>b</td><td>c</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    expect(blockTexts(cellBlock(grid, { r0: 0, r1: 1, c0: 1, c1: 2 }))).toEqual(["wide x", "b c"]);
+  });
+
+  it("puts a rowspan cell's text in its first row only", () => {
+    const t = table(`<table>
+      <tr><td rowspan="2">tall</td><td>a</td></tr>
+      <tr><td>b</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    expect(blockTexts(cellBlock(grid, { r0: 0, r1: 1, c0: 0, c1: 1 }))).toEqual(["tall a", "· b"]);
+  });
+
+  it("leaves missing slots of a ragged row empty", () => {
+    const t = table(`<table>
+      <tr><td>a</td><td>b</td></tr>
+      <tr><td>c</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    expect(blockTexts(cellBlock(grid, { r0: 0, r1: 1, c0: 0, c1: 1 }))).toEqual(["a b", "c ·"]);
+  });
+});
+
+describe("blockToText", () => {
+  const block = (): (Cell | null)[][] => {
+    const t = table(`<table>
+      <tr><td colspan="2">wide</td><td>x</td></tr>
+      <tr><td></td><td></td><td></td></tr>
+      <tr><td>a</td><td></td><td>c</td></tr>
+    </table>`);
+
+    return cellBlock(buildGrid(t).grid, { r0: 0, r1: 2, c0: 0, c1: 2 });
+  };
+
+  it("joins cells with tabs and rows with newlines", () => {
+    expect(blockToText(block(), false)).toBe("wide\t\tx\n\t\t\na\t\tc");
+  });
+
+  it("drops only the rows that are entirely empty when trimming", () => {
+    expect(blockToText(block(), true)).toBe("wide\t\tx\na\t\tc");
+  });
+});
+
+describe("columnCount", () => {
+  it("is the width of the widest row", () => {
+    const t = table(`<table>
+      <tr><td colspan="3">wide</td></tr>
+      <tr><td>a</td></tr>
+    </table>`);
+
+    expect(columnCount(buildGrid(t).grid)).toBe(3);
+  });
+
+  it("is 0 for an empty grid", () => {
+    expect(columnCount([])).toBe(0);
+  });
+});
+
+describe("endColumnAt", () => {
+  // Columns 100px wide: centres at 50, 150, 250, 350.
+  const centers = [50, 150, 250, 350];
+
+  it("stays on the anchor until the pointer passes a neighbour's centre", () => {
+    expect(endColumnAt(centers, 1, 160)).toBe(1);
+    expect(endColumnAt(centers, 1, 249)).toBe(1);
+    expect(endColumnAt(centers, 1, 51)).toBe(1);
+  });
+
+  it("widens to the right one column per centre passed", () => {
+    expect(endColumnAt(centers, 1, 250)).toBe(2);
+    expect(endColumnAt(centers, 1, 400)).toBe(3);
+  });
+
+  it("widens to the left one column per centre passed", () => {
+    expect(endColumnAt(centers, 2, 150)).toBe(1);
+    expect(endColumnAt(centers, 2, 10)).toBe(0);
+  });
+
+  it("narrows back to the anchor when the pointer returns", () => {
+    expect(endColumnAt(centers, 1, 400)).toBe(3);
+    expect(endColumnAt(centers, 1, 200)).toBe(1);
+  });
+
+  it("passes over columns with no known centre", () => {
+    const gappy = [50, null, 250, 350];
+    expect(endColumnAt(gappy, 0, 200)).toBe(0);
+    expect(endColumnAt(gappy, 0, 260)).toBe(2);
+    expect(endColumnAt(gappy, 2, 40)).toBe(0);
+  });
+});
+
+describe("extraColumns", () => {
+  it("counts the columns a cell covers beyond its first", () => {
+    const t = table(`<table><tr><td colspan="3">wide</td><td>x</td></tr></table>`);
+    const { grid } = buildGrid(t);
+    expect(extraColumns(grid, { r: 0, c: 0 }, grid[0][0]!)).toBe(2);
+    expect(extraColumns(grid, { r: 0, c: 3 }, grid[0][3]!)).toBe(0);
   });
 });

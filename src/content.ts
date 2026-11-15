@@ -1,16 +1,28 @@
 // ColumnGrab content script: modifier-drag selection + context-menu column copy.
 import { requireElement } from "./dom";
-import { isCopyColumnMessage, isCopyResult, type ClipboardFallbackMessage } from "./messages";
-import { outlinePath, type Rect } from "./outline";
+import {
+  isCopyColumnMessage,
+  isCopyResult,
+  isCopyTableMessage,
+  type ClipboardFallbackMessage,
+} from "./messages";
+import { blockBands, outlinePath, type Rect } from "./outline";
 import { DEFAULT_SETTINGS, loadSettings, type Modifier, type Settings } from "./settings";
 import {
+  blockToText,
   buildGrid,
+  cellBlock,
   cellText,
   colOffsetWithin,
   columnCells,
+  columnCenters,
+  columnCount,
+  endColumnAt,
+  extraColumns,
   findCell,
   headerRowCount,
   locate,
+  type BlockRange,
   type Cell,
   type Grid,
   type GridPos,
@@ -30,11 +42,14 @@ interface DragState {
   startCell: Cell;
   startPos: GridPos;
   /**
-   * False while the pointer is still inside a merged start cell: the column then follows
-   * the pointer across the cell's span, and is fixed once the pointer leaves the cell.
+   * False while the pointer is still inside a merged start cell: the anchor column then
+   * follows the pointer across the cell's span, and is fixed once the pointer leaves the cell
+   * (on the cell's far side when it leaves sideways).
    */
   colLocked: boolean;
-  col: number;
+  /** The column the drag started in, and the far column it has been widened to. */
+  anchorCol: number;
+  endCol: number;
   startRow: number;
   endRow: number;
   lastX: number;
@@ -88,6 +103,45 @@ function main(): void {
     return values.join("\n");
   }
 
+  // ---------- Selection ----------
+  /** What a drag or menu command selected: what to outline, how to describe it, what to copy. */
+  interface Selection {
+    rects: Rect[];
+    /** Badge and toast wording, e.g. "5 cells" or "3 columns × 5 rows". */
+    label: string;
+    isEmpty: boolean;
+    toText: () => string;
+  }
+
+  const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  /**
+   * A single column copies one value per line, with rowspans counted once. Several columns
+   * copy tab-separated rows, with each merged cell's text once and blanks in its other slots.
+   */
+  function selectBlock(rows: HTMLTableRowElement[], grid: Grid, range: BlockRange): Selection {
+    if (range.c0 === range.c1) {
+      const cells = columnCells(grid, range.c0, range.r0, range.r1);
+
+      return {
+        rects: cells.map((c) => c.getBoundingClientRect()),
+        label: plural(cells.length, "cell"),
+        isEmpty: !cells.length,
+        toText: () => cellsToText(cells),
+      };
+    }
+
+    const nCols = range.c1 - range.c0 + 1;
+    const nRows = range.r1 - range.r0 + 1;
+
+    return {
+      rects: blockBands(rows, grid, range),
+      label: `${plural(nCols, "column")} × ${plural(nRows, "row")}`,
+      isEmpty: false,
+      toText: () => blockToText(cellBlock(grid, range), settings.trimEmpty),
+    };
+  }
+
   // ---------- Clipboard ----------
   async function copyText(text: string): Promise<boolean> {
     try {
@@ -125,11 +179,10 @@ function main(): void {
     }
   }
 
-  async function copyCells(cells: Cell[]): Promise<void> {
-    if (!cells.length) return toast("No cells to copy", true);
-    const ok = await copyText(cellsToText(cells));
-    const plural = cells.length === 1 ? "" : "s";
-    toast(ok ? `Copied ${cells.length} cell${plural}` : "Couldn't access the clipboard", !ok);
+  async function copySelection(sel: Selection): Promise<void> {
+    if (sel.isEmpty) return toast("No cells to copy", true);
+    const ok = await copyText(sel.toText());
+    toast(ok ? `Copied ${sel.label}` : "Couldn't access the clipboard", !ok);
   }
 
   // ---------- UI (isolated in a shadow root so page CSS can't touch it) ----------
@@ -189,23 +242,22 @@ function main(): void {
   }
 
   /**
-   * Outline the selected cells. Each cell is drawn at its own width, so a merged cell
-   * (colspan) is highlighted in full without covering the neighbouring column's cells.
+   * Outline a selection. Each cell (or row band) is drawn at its own width, so a merged cell
+   * is highlighted in full without covering cells in columns that aren't selected.
    */
-  function drawSelection(cells: Cell[]): void {
+  function drawSelection(sel: Selection | null): void {
     const { box, outline, badge } = ui();
 
-    if (!cells.length) {
+    if (!sel?.rects.length) {
       box.style.display = badge.style.display = "none";
 
       return;
     }
 
-    const rects: Rect[] = cells.map((c) => c.getBoundingClientRect());
-    outline.setAttribute("d", outlinePath(rects));
+    outline.setAttribute("d", outlinePath(sel.rects));
     box.style.display = "block";
-    const last = rects[rects.length - 1];
-    badge.textContent = `${cells.length} cell${cells.length === 1 ? "" : "s"}`;
+    const last = sel.rects[sel.rects.length - 1];
+    badge.textContent = sel.label;
     Object.assign(badge.style, {
       display: "block",
       top: `${Math.min(last.bottom + 4, window.innerHeight - 24)}px`,
@@ -227,22 +279,40 @@ function main(): void {
     return y < d.rows[0].getBoundingClientRect().top ? 0 : d.rows.length - 1;
   }
 
-  function currentCells(d: DragState): Cell[] {
-    const r0 = Math.min(d.startRow, d.endRow);
-    const r1 = Math.max(d.startRow, d.endRow);
+  function currentSelection(d: DragState): Selection {
+    return selectBlock(d.rows, d.grid, {
+      r0: Math.min(d.startRow, d.endRow),
+      r1: Math.max(d.startRow, d.endRow),
+      c0: Math.min(d.anchorCol, d.endCol),
+      c1: Math.max(d.anchorCol, d.endCol),
+    });
+  }
 
-    return columnCells(d.grid, d.col, r0, r1);
+  function isInside(el: Element, x: number, y: number): boolean {
+    const r = el.getBoundingClientRect();
+
+    return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
   }
 
   function update(d: DragState): void {
     d.endRow = rowAtY(d, d.lastY);
 
     if (!d.colLocked) {
-      d.col = d.startPos.c + colOffsetWithin(d.startCell, d.grid, d.startPos, d.lastX);
-      d.colLocked = d.grid[d.endRow]?.[d.startPos.c] !== d.startCell;
+      const box = d.startCell.getBoundingClientRect();
+
+      // Leaving a merged cell sideways anchors on its far side, so the whole cell is kept.
+      if (d.lastX >= box.right) d.anchorCol = d.startPos.c;
+      else if (d.lastX < box.left)
+        d.anchorCol = d.startPos.c + extraColumns(d.grid, d.startPos, d.startCell);
+      else d.anchorCol = d.startPos.c + colOffsetWithin(d.startCell, d.grid, d.startPos, d.lastX);
+      d.endCol = d.anchorCol;
+      d.colLocked = !isInside(d.startCell, d.lastX, d.lastY);
     }
 
-    drawSelection(currentCells(d));
+    // Once the anchor is fixed, moving past a neighbouring column's centre widens the block.
+    if (d.colLocked) d.endCol = endColumnAt(columnCenters(d.grid), d.anchorCol, d.lastX);
+
+    drawSelection(currentSelection(d));
   }
 
   // Auto-scroll when the pointer sits near the top/bottom edge of the viewport.
@@ -277,15 +347,16 @@ function main(): void {
     e.preventDefault(); // no text selection, no native drag
     e.stopPropagation();
     // The column under the pointer; for a merged (colspan) cell, update() keeps it in step
-    // with the pointer until the drag leaves the cell.
+    // with the pointer until the drag leaves the cell. Other cells fix it straight away.
     drag = {
       table,
       rows,
       grid,
       startCell: cell,
       startPos: pos,
-      colLocked: false,
-      col: pos.c,
+      colLocked: cell.colSpan <= 1,
+      anchorCol: pos.c,
+      endCol: pos.c,
       startRow: pos.r,
       endRow: pos.r,
       lastX: e.clientX,
@@ -317,7 +388,7 @@ function main(): void {
   function endDrag(): void {
     if (drag) cancelAnimationFrame(drag.raf);
     drag = null;
-    drawSelection([]);
+    drawSelection(null);
     window.removeEventListener("mousemove", onMouseMove, true);
     window.removeEventListener("mouseup", onMouseUp, true);
     window.removeEventListener("keydown", onDragKey, true);
@@ -336,12 +407,12 @@ function main(): void {
     drag.lastX = e.clientX;
     drag.lastY = e.clientY;
     update(drag);
-    const cells = currentCells(drag);
+    const sel = currentSelection(drag);
     endDrag();
     // Swallow the click that follows, so links/buttons in the cell (and Alt+click download) don't fire.
     window.addEventListener("click", swallowClick, { capture: true, once: true });
     setTimeout(() => window.removeEventListener("click", swallowClick, true), 0);
-    void copyCells(cells);
+    void copySelection(sel);
   }
 
   function onDragKey(e: KeyboardEvent): void {
@@ -373,7 +444,9 @@ function main(): void {
   );
 
   chrome.runtime.onMessage.addListener((msg) => {
-    if (!isCopyColumnMessage(msg)) return;
+    const wholeTable = isCopyTableMessage(msg);
+
+    if (!wholeTable && !isCopyColumnMessage(msg)) return;
     const cell = lastContextCell;
     const table = cell?.closest("table");
 
@@ -387,12 +460,20 @@ function main(): void {
     const pos = locate(grid, cell);
 
     if (!pos) return;
-    const start = msg.includeHeader ? 0 : headerRowCount(table, rows);
-    const cells = columnCells(grid, pos.c, start, rows.length - 1);
-    // Flash the copied column briefly.
-    drawSelection(cells);
-    setTimeout(() => drawSelection([]), FLASH_MS);
-    void copyCells(cells);
+    const last = rows.length - 1;
+    let range: BlockRange;
+
+    if (wholeTable) range = { r0: 0, r1: last, c0: 0, c1: Math.max(0, columnCount(grid) - 1) };
+    else {
+      const r0 = msg.includeHeader ? 0 : headerRowCount(table, rows);
+      range = { r0, r1: last, c0: pos.c, c1: pos.c };
+    }
+
+    const sel = selectBlock(rows, grid, range);
+    // Flash the copied cells briefly.
+    drawSelection(sel);
+    setTimeout(() => drawSelection(null), FLASH_MS);
+    void copySelection(sel);
   });
 }
 
