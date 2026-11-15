@@ -47,6 +47,18 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 When squash-merging a pull request, GitHub uses the PR title as the commit message, so PR titles should follow the same format.
 
+## Releasing
+
+Releases are made by [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`):
+
+1. Each merge to `main` opens or updates a release PR. It bumps the version in `package.json` and `public/manifest.json` from the commits since the last release (`fix` → patch, `feat` → minor, breaking → major) and updates `CHANGELOG.md`.
+2. Merging the release PR tags it (`v1.2.3`), creates the GitHub Release and attaches `columngrab-<version>.zip`.
+3. Upload that zip to the Chrome Web Store by hand.
+
+Chrome only accepts versions made of numbers and dots, so don't make prerelease versions (`1.2.0-beta`).
+
+For CI to run on the release PR, add a repository secret `RELEASE_PLEASE_TOKEN`: a fine-grained personal access token for this repository with read and write access to Contents and Pull requests. Without it the workflow falls back to `GITHUB_TOKEN`, and the release PR gets no CI checks.
+
 ## Layout
 
 ```
