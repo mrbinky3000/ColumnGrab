@@ -83,9 +83,38 @@ export function columnCells(grid: Grid, col: number, r0: number, r1: number): Ce
   return out;
 }
 
+/** The first cell in column `col` that spans only that column (no colspan into neighbours). */
+export function singleColumnCell(grid: Grid, col: number): Cell | null {
+  for (const row of grid) {
+    const cell = row[col];
+
+    if (cell && row[col - 1] !== cell && row[col + 1] !== cell) return cell;
+  }
+
+  return null;
+}
+
+export interface XRange {
+  left: number;
+  right: number;
+}
+
 /**
- * For a colspan cell, pick which spanned column the pointer is over by finding a
- * single-column cell in each candidate column (in another row) and hit-testing its x range.
+ * Horizontal extent of column `col` on screen, taken from a cell that spans only that
+ * column. Null when every cell in the column is merged with a neighbour.
+ */
+export function columnXRange(grid: Grid, col: number): XRange | null {
+  const cell = singleColumnCell(grid, col);
+
+  if (!cell) return null;
+  const { left, right } = cell.getBoundingClientRect();
+
+  return { left, right };
+}
+
+/**
+ * For a colspan cell, pick which spanned column the pointer is over by hit-testing
+ * each spanned column's x range.
  */
 export function colOffsetWithin(cell: Cell, grid: Grid, pos: GridPos, x: number): number {
   let span = 0;
@@ -95,18 +124,9 @@ export function colOffsetWithin(cell: Cell, grid: Grid, pos: GridPos, x: number)
   if (!span) return 0;
 
   for (let k = 0; k <= span; k++) {
-    const c = pos.c + k;
+    const range = columnXRange(grid, pos.c + k);
 
-    for (const row of grid) {
-      const other = row[c];
-
-      if (other && other !== cell && row[c - 1] !== other && row[c + 1] !== other) {
-        const rect = other.getBoundingClientRect();
-
-        if (x >= rect.left && x < rect.right) return k;
-        break;
-      }
-    }
+    if (range && x >= range.left && x < range.right) return k;
   }
 
   return 0;

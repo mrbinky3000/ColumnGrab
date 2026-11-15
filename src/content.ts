@@ -7,11 +7,13 @@ import {
   cellText,
   colOffsetWithin,
   columnCells,
+  columnXRange,
   findCell,
   headerRowCount,
   locate,
   type Cell,
   type Grid,
+  type XRange,
 } from "./table";
 
 declare global {
@@ -168,7 +170,12 @@ function main(): void {
     toastTimer = setTimeout(() => el.classList.remove("show"), TOAST_MS);
   }
 
-  function drawSelection(cells: Cell[]): void {
+  /**
+   * Outline the selected cells. `xRange` is the selected column's own horizontal extent:
+   * without it, a merged cell (colspan) would widen the box over neighbouring columns
+   * that aren't being copied.
+   */
+  function drawSelection(cells: Cell[], xRange: XRange | null = null): void {
     const { box, badge } = ui();
 
     if (!cells.length) {
@@ -189,6 +196,8 @@ function main(): void {
       right = Math.max(right, r.right);
       bottom = Math.max(bottom, r.bottom);
     }
+
+    if (xRange) ({ left, right } = xRange);
 
     Object.assign(box.style, {
       display: "block",
@@ -228,7 +237,7 @@ function main(): void {
 
   function update(d: DragState): void {
     d.endRow = rowAtY(d, d.lastY);
-    drawSelection(currentCells(d));
+    drawSelection(currentCells(d), columnXRange(d.grid, d.col));
   }
 
   // Auto-scroll when the pointer sits near the top/bottom edge of the viewport.
@@ -361,7 +370,7 @@ function main(): void {
     const start = msg.includeHeader ? 0 : headerRowCount(table, rows);
     const cells = columnCells(grid, pos.c, start, rows.length - 1);
     // Flash the copied column briefly.
-    drawSelection(cells);
+    drawSelection(cells, columnXRange(grid, pos.c));
     setTimeout(() => drawSelection([]), FLASH_MS);
     void copyCells(cells);
   });
