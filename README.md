@@ -21,15 +21,15 @@ npm run build      # → dist/
 
 Then open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and pick the `dist/` folder. Open `demo/index.html` to try it. Tabs that were already open need a reload before ColumnGrab works in them.
 
-| Script | What it does |
-|---|---|
-| `npm run build` | Bundle `src/` with esbuild and copy `public/` into `dist/` |
-| `npm run watch` | Rebuild on change (reload the extension in Chrome afterwards) |
-| `npm test` | Run unit tests with Vitest (`test:watch` to re-run on change) |
-| `npm run typecheck` | Type-check the extension and build scripts |
-| `npm run lint` | Lint with oxlint |
-| `npm run format` | Format with oxfmt (`format:check` to verify only) |
-| `npm run package` | Build and zip `dist/` into `release/columngrab-<version>.zip` for the Web Store |
+| Script              | What it does                                                                    |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `npm run build`     | Bundle `src/` with esbuild and copy `public/` into `dist/`                      |
+| `npm run watch`     | Rebuild on change (reload the extension in Chrome afterwards)                   |
+| `npm test`          | Run unit tests with Vitest (`test:watch` to re-run on change)                   |
+| `npm run typecheck` | Type-check the extension and build scripts                                      |
+| `npm run lint`      | Lint with oxlint                                                                |
+| `npm run format`    | Format with oxfmt (`format:check` to verify only)                               |
+| `npm run package`   | Build and zip `dist/` into `release/columngrab-<version>.zip` for the Web Store |
 
 ## Commit messages
 
@@ -73,7 +73,7 @@ src/            TypeScript source
 public/         manifest, HTML pages and icons, copied as-is into dist/
 scripts/        build and package scripts
 assets/         icon sources (SVG)
-store/          Chrome Web Store listing copy
+store/          Chrome Web Store listing copy, screenshots and promo tiles
 demo/           test page with sample tables
 ```
 
