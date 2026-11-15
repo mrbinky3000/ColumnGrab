@@ -11,18 +11,27 @@
     "build": "node scripts/build.ts",
     "watch": "node scripts/build.ts --watch",
     "package": "npm run build && node scripts/package.ts",
-    "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck":"tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@types/chrome": "^0.3.7",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
+    "husky": "^9.1.7",
+    "jsdom": "^29.1.1",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
   }
 }
