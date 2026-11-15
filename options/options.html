@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ColumnGrab Settings</title>
+    <style>
+      :root { color-scheme: light dark; --accent: #4338ca; }
+      body { font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 18px 22px; min-width: 360px; }
+      h1 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+      h1 img { width: 24px; height: 24px; }
+      p.lead { margin: 0 0 16px; opacity: 0.75; }
+      fieldset { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 8px; padding: 10px 14px 12px; margin: 0 0 14px; }
+      legend { font-weight: 600; padding: 0 4px; }
+      label { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; cursor: pointer; }
+      kbd { font: 12px ui-monospace, monospace; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
+      .hint { font-size: 12px; opacity: 0.7; }
+      #saved { color: var(--accent); font-size: 12px; height: 16px; }
+      @media (prefers-color-scheme: dark) { :root { --accent: #a5b4fc; } }
+    </style>
+  </head>
+  <body>
+    <h1><img src="../icons/icon48.png" alt="" />ColumnGrab</h1>
+    <p class="lead">Hold the key below and drag down a table column, or right-click any cell and choose <b>ColumnGrab → Copy this table column</b>.</p>
+
+    <fieldset>
+      <legend>Drag key</legend>
+      <label><input type="radio" name="modifier" value="alt" /> <span><kbd>Alt</kbd> / <kbd>⌥ Option</kbd> <span class="hint">(default)</span></span></label>
+      <label><input type="radio" name="modifier" value="alt+shift" /> <span><kbd>Alt</kbd> + <kbd>Shift</kbd></span></label>
+      <label><input type="radio" name="modifier" value="ctrl+alt" /> <span><kbd>Ctrl</kbd> + <kbd>Alt</kbd> <span class="hint">(Windows/Linux)</span></span></label>
+      <div class="hint">Pick another if a site already uses your key for something. Press <kbd>Esc</kbd> mid-drag to cancel.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Output</legend>
+      <label><input type="checkbox" id="trimEmpty" /> Skip empty cells</label>
+    </fieldset>
+
+    <div id="saved"></div>
+    <script src="options.js"></script>
+  </body>
+</html>

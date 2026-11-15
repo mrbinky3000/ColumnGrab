@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ColumnGrab test page</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 24px; max-width: 900px; }
+  table { border-collapse: collapse; margin: 12px 0 32px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  thead th { background: #f3f4f6; }
+  textarea { width: 100%; height: 120px; }
+</style>
+</head>
+<body>
+<h1>ColumnGrab test page</h1>
+<p>Hold <b>Alt / Option</b> and drag down a column, or right-click a cell. Paste here to check:</p>
+<textarea id="paste" placeholder="Paste here"></textarea>
+
+<h2>1. Simple table with &lt;thead&gt;</h2>
+<table id="simple">
+  <thead><tr><th>Name</th><th>Email</th><th>Score</th></tr></thead>
+  <tbody>
+    <tr><td>Ada Lovelace</td><td><a href="#ada">ada@example.com</a></td><td>98</td></tr>
+    <tr><td>Alan Turing</td><td><a href="#alan">alan@example.com</a></td><td>95</td></tr>
+    <tr><td>Grace Hopper</td><td><a href="#grace">grace@example.com</a></td><td>97</td></tr>
+    <tr><td>Katherine Johnson</td><td><a href="#kj">kj@example.com</a></td><td></td></tr>
+  </tbody>
+</table>
+
+<h2>2. Merged cells (rowspan / colspan)</h2>
+<table id="merged">
+  <tr><th>Region</th><th colspan="2">Q1</th><th>Q2</th></tr>
+  <tr><th></th><th>Jan</th><th>Feb</th><th>Apr</th></tr>
+  <tr><td rowspan="2">North</td><td>10</td><td>11</td><td>12</td></tr>
+  <tr><td>20</td><td>21</td><td>22</td></tr>
+  <tr><td>South</td><td colspan="2">30 (merged)</td><td>32</td></tr>
+</table>
+
+<h2>3. Long table (tests auto-scroll)</h2>
+<table id="long">
+  <thead><tr><th>#</th><th>Value</th></tr></thead>
+  <tbody id="longBody"></tbody>
+</table>
+<script>
+  const b = document.getElementById('longBody');
+  for (let i = 1; i <= 80; i++) b.insertAdjacentHTML('beforeend', `<tr><td>${i}</td><td>Item ${i}</td></tr>`);
+</script>
+</body>
+</html>
