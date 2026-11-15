@@ -238,6 +238,22 @@ describe("colOffsetWithin", () => {
     expect(colOffsetWithin(wide, grid, pos, 250)).toBe(2);
   });
 
+  it("picks the last spanned column when the pointer is past the right edge", () => {
+    const t = table(`<table>
+      <tr><td colspan="2">wide</td></tr>
+      <tr><td>a</td><td>b</td></tr>
+    </table>`);
+
+    const { grid } = buildGrid(t);
+    const [a, b] = Array.from(t.rows[1].cells);
+    setRect(a, 0, 100);
+    setRect(b, 100, 200);
+    const pos = { r: 0, c: 0 };
+    expect(colOffsetWithin(grid[0][0]!, grid, pos, 200)).toBe(1);
+    expect(colOffsetWithin(grid[0][0]!, grid, pos, 350)).toBe(1);
+    expect(colOffsetWithin(grid[0][0]!, grid, pos, -20)).toBe(0);
+  });
+
   it("falls back to the first spanned column when no other row has single-column cells", () => {
     const t = table(`<table><tr><td colspan="2">wide</td></tr></table>`);
     const { grid } = buildGrid(t);

@@ -13,6 +13,7 @@ import {
   locate,
   type Cell,
   type Grid,
+  type GridPos,
 } from "./table";
 
 declare global {
@@ -25,9 +26,18 @@ interface DragState {
   table: HTMLTableElement;
   rows: HTMLTableRowElement[];
   grid: Grid;
+  /** The cell the drag started on, and its top-left grid position. */
+  startCell: Cell;
+  startPos: GridPos;
+  /**
+   * False while the pointer is still inside a merged start cell: the column then follows
+   * the pointer across the cell's span, and is fixed once the pointer leaves the cell.
+   */
+  colLocked: boolean;
   col: number;
   startRow: number;
   endRow: number;
+  lastX: number;
   lastY: number;
   raf: number;
 }
@@ -226,6 +236,12 @@ function main(): void {
 
   function update(d: DragState): void {
     d.endRow = rowAtY(d, d.lastY);
+
+    if (!d.colLocked) {
+      d.col = d.startPos.c + colOffsetWithin(d.startCell, d.grid, d.startPos, d.lastX);
+      d.colLocked = d.grid[d.endRow]?.[d.startPos.c] !== d.startCell;
+    }
+
     drawSelection(currentCells(d));
   }
 
@@ -260,9 +276,22 @@ function main(): void {
 
     e.preventDefault(); // no text selection, no native drag
     e.stopPropagation();
-    // Use the column under the pointer (matters for colspan cells).
-    const col = pos.c + colOffsetWithin(cell, grid, pos, e.clientX);
-    drag = { table, rows, grid, col, startRow: pos.r, endRow: pos.r, lastY: e.clientY, raf: 0 };
+    // The column under the pointer; for a merged (colspan) cell, update() keeps it in step
+    // with the pointer until the drag leaves the cell.
+    drag = {
+      table,
+      rows,
+      grid,
+      startCell: cell,
+      startPos: pos,
+      colLocked: false,
+      col: pos.c,
+      startRow: pos.r,
+      endRow: pos.r,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      raf: 0,
+    };
     window.getSelection()?.removeAllRanges();
     update(drag);
     drag.raf = requestAnimationFrame(autoScrollLoop);
@@ -276,6 +305,7 @@ function main(): void {
   function onMouseMove(e: MouseEvent): void {
     if (!drag) return;
     e.preventDefault();
+    drag.lastX = e.clientX;
     drag.lastY = e.clientY;
     update(drag);
   }
@@ -303,6 +333,7 @@ function main(): void {
     if (!drag) return;
     e.preventDefault();
     e.stopPropagation();
+    drag.lastX = e.clientX;
     drag.lastY = e.clientY;
     update(drag);
     const cells = currentCells(drag);

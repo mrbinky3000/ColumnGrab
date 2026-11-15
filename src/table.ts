@@ -114,7 +114,7 @@ export function columnXRange(grid: Grid, col: number): XRange | null {
 
 /**
  * For a colspan cell, pick which spanned column the pointer is over by hit-testing
- * each spanned column's x range.
+ * each spanned column's x range. A pointer past the right edge picks the last column.
  */
 export function colOffsetWithin(cell: Cell, grid: Grid, pos: GridPos, x: number): number {
   let span = 0;
@@ -129,7 +129,9 @@ export function colOffsetWithin(cell: Cell, grid: Grid, pos: GridPos, x: number)
     if (range && x >= range.left && x < range.right) return k;
   }
 
-  return 0;
+  const last = columnXRange(grid, pos.c + span);
+
+  return last && x >= last.right ? span : 0;
 }
 
 export function cellText(cell: Cell): string {
