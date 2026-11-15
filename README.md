@@ -29,6 +29,22 @@ Then open `chrome://extensions`, enable **Developer mode**, click **Load unpacke
 | `npm run format` | Format with oxfmt (`format:check` to verify only) |
 | `npm run package` | Build and zip `dist/` into `release/columngrab-<version>.zip` for the Web Store |
 
+## Commit messages
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org). A `commit-msg` hook (husky + commitlint, installed by `npm install`) rejects messages that don't follow the format:
+
+```
+<type>(<optional scope>): <subject>
+
+feat(content): add Esc to cancel a drag
+fix: keep header row when copying merged columns
+docs: explain the dist/ folder
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Add `!` after the type (`feat!:`) or a `BREAKING CHANGE:` footer for breaking changes.
+
+When squash-merging a pull request, GitHub uses the PR title as the commit message, so PR titles should follow the same format.
+
 ## Layout
 
 ```
