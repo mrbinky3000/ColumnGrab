@@ -10,6 +10,7 @@ const outdir = `${root}dist`;
 const watch = process.argv.includes("--watch");
 
 rmSync(outdir, { recursive: true, force: true });
+
 mkdirSync(outdir, { recursive: true });
 
 const copyPublic = (): void => cpSync(`${root}public`, outdir, { recursive: true });

@@ -1,5 +1,6 @@
 // ColumnGrab content script: modifier-drag selection + context-menu column copy.
-import { isMessage, type ClipboardFallbackMessage, type CopyColumnMessage, type CopyResult } from "./messages";
+import { requireElement } from "./dom";
+import { isCopyColumnMessage, isCopyResult, type ClipboardFallbackMessage } from "./messages";
 import { DEFAULT_SETTINGS, loadSettings, type Modifier, type Settings } from "./settings";
 import {
   buildGrid,
@@ -55,14 +56,14 @@ function main(): void {
   const matchesModifier = (e: KeyState): boolean => MODIFIERS[settings.modifier](e);
 
   try {
-    void loadSettings().then((s) => (settings = s));
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "sync") return;
-      const patch: Partial<Settings> = {};
-      for (const [key, change] of Object.entries(changes)) {
-        if (key in DEFAULT_SETTINGS) (patch as Record<string, unknown>)[key] = change.newValue;
-      }
-      settings = { ...settings, ...patch };
+    const reloadSettings = (): void => {
+      void loadSettings().then((s) => (settings = s));
+    };
+
+    reloadSettings();
+    // Re-read through loadSettings so changed values get the same defaults as at startup.
+    chrome.storage.onChanged.addListener((_changes, area) => {
+      if (area === "sync") reloadSettings();
     });
   } catch {
     // Extension context invalidated (extension reloaded while the page stayed open).
@@ -70,7 +71,9 @@ function main(): void {
 
   function cellsToText(cells: Cell[]): string {
     let values = cells.map(cellText);
+
     if (settings.trimEmpty) values = values.filter((v) => v !== "");
+
     return values.join("\n");
   }
 
@@ -78,12 +81,14 @@ function main(): void {
   async function copyText(text: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(text);
+
       return true;
     } catch {
       // Fall through: no focus, or blocked by the frame's permissions policy.
     }
+
     try {
-      const active = document.activeElement as HTMLElement | null;
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.setAttribute("readonly", "");
@@ -92,15 +97,18 @@ function main(): void {
       ta.select();
       const ok = document.execCommand("copy");
       ta.remove();
-      active?.focus?.({ preventScroll: true });
+      active?.focus({ preventScroll: true });
+
       if (ok) return true;
     } catch {
       // Fall through to the background/offscreen path.
     }
+
     try {
       const message: ClipboardFallbackMessage = { type: "columngrab:clipboard-fallback", text };
-      const res = (await chrome.runtime.sendMessage(message)) as CopyResult | undefined;
-      return !!res?.ok;
+      const res = await chrome.runtime.sendMessage<ClipboardFallbackMessage, unknown>(message);
+
+      return isCopyResult(res) && res.ok;
     } catch {
       return false;
     }
@@ -120,6 +128,7 @@ function main(): void {
     badge: HTMLDivElement;
     toast: HTMLDivElement;
   }
+
   let uiState: Ui | null = null;
 
   function ui(): Ui {
@@ -142,12 +151,14 @@ function main(): void {
       </style>
       <div class="box"></div><div class="badge"></div><div class="toast"></div>`;
     document.documentElement.appendChild(host);
-    const q = (sel: string) => root.querySelector(sel) as HTMLDivElement;
+    const q = (sel: string) => requireElement(root, sel, HTMLDivElement);
     uiState = { root, box: q(".box"), badge: q(".badge"), toast: q(".toast") };
+
     return uiState;
   }
 
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
   function toast(msg: string, isError = false): void {
     const el = ui().toast;
     el.textContent = `ColumnGrab: ${msg}`;
@@ -159,14 +170,18 @@ function main(): void {
 
   function drawSelection(cells: Cell[]): void {
     const { box, badge } = ui();
+
     if (!cells.length) {
       box.style.display = badge.style.display = "none";
+
       return;
     }
+
     let top = Infinity;
     let left = Infinity;
     let right = -Infinity;
     let bottom = -Infinity;
+
     for (const c of cells) {
       const r = c.getBoundingClientRect();
       top = Math.min(top, r.top);
@@ -174,6 +189,7 @@ function main(): void {
       right = Math.max(right, r.right);
       bottom = Math.max(bottom, r.bottom);
     }
+
     Object.assign(box.style, {
       display: "block",
       top: `${top}px`,
@@ -195,8 +211,10 @@ function main(): void {
   function rowAtY(d: DragState, y: number): number {
     for (let i = 0; i < d.rows.length; i++) {
       const r = d.rows[i].getBoundingClientRect();
+
       if (y >= r.top && y < r.bottom) return i;
     }
+
     // Outside the table: clamp to the nearest end.
     return y < d.rows[0].getBoundingClientRect().top ? 0 : d.rows.length - 1;
   }
@@ -204,6 +222,7 @@ function main(): void {
   function currentCells(d: DragState): Cell[] {
     const r0 = Math.min(d.startRow, d.endRow);
     const r1 = Math.max(d.startRow, d.endRow);
+
     return columnCells(d.grid, d.col, r0, r1);
   }
 
@@ -217,13 +236,16 @@ function main(): void {
     if (!drag) return;
     const y = drag.lastY;
     let dy = 0;
+
     if (y < AUTOSCROLL_EDGE) dy = -Math.ceil((AUTOSCROLL_EDGE - y) / 3);
     else if (y > window.innerHeight - AUTOSCROLL_EDGE)
       dy = Math.ceil((y - (window.innerHeight - AUTOSCROLL_EDGE)) / 3);
+
     if (dy) {
       window.scrollBy(0, dy);
       update(drag);
     }
+
     drag.raf = requestAnimationFrame(autoScrollLoop);
   }
 
@@ -231,9 +253,11 @@ function main(): void {
     if (e.button !== 0 || !matchesModifier(e)) return;
     const cell = findCell(e.target);
     const table = cell?.closest("table");
+
     if (!cell || !table) return;
     const { rows, grid } = buildGrid(table);
     const pos = locate(grid, cell);
+
     if (!pos) return;
 
     e.preventDefault(); // no text selection, no native drag
@@ -319,16 +343,20 @@ function main(): void {
     true,
   );
 
-  chrome.runtime.onMessage.addListener((msg: unknown) => {
-    if (!isMessage<CopyColumnMessage>(msg, "columngrab:copy-column")) return;
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (!isCopyColumnMessage(msg)) return;
     const cell = lastContextCell;
     const table = cell?.closest("table");
+
     if (!cell?.isConnected || !table) {
       toast("Right-click inside a table cell first", true);
+
       return;
     }
+
     const { rows, grid } = buildGrid(table);
     const pos = locate(grid, cell);
+
     if (!pos) return;
     const start = msg.includeHeader ? 0 : headerRowCount(table, rows);
     const cells = columnCells(grid, pos.c, start, rows.length - 1);
