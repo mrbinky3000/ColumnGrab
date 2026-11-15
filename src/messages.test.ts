@@ -4,6 +4,8 @@ import {
   isCopyColumnMessage,
   isCopyResult,
   isCopyTableMessage,
+  isFromContentScript,
+  isFromExtension,
   isOffscreenCopyMessage,
 } from "./messages";
 
@@ -80,5 +82,24 @@ describe("isCopyTableMessage", () => {
 
   it.each(NOT_MESSAGES)("rejects %j", (value) => {
     expect(isCopyTableMessage(value)).toBe(false);
+  });
+});
+
+describe("sender checks", () => {
+  const ID = "ourextensionid";
+  const tab = { id: 1 };
+
+  it("isFromContentScript accepts only our id from a tab", () => {
+    expect(isFromContentScript({ id: ID, tab }, ID)).toBe(true);
+    expect(isFromContentScript({ id: ID }, ID)).toBe(false);
+    expect(isFromContentScript({ id: "otherextension", tab }, ID)).toBe(false);
+    expect(isFromContentScript({ tab }, ID)).toBe(false);
+  });
+
+  it("isFromExtension accepts only our id without a tab", () => {
+    expect(isFromExtension({ id: ID }, ID)).toBe(true);
+    expect(isFromExtension({ id: ID, tab }, ID)).toBe(false);
+    expect(isFromExtension({ id: "otherextension" }, ID)).toBe(false);
+    expect(isFromExtension({}, ID)).toBe(false);
   });
 });

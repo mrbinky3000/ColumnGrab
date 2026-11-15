@@ -266,6 +266,9 @@ function main(): void {
   }
 
   // ---------- Drag-to-select ----------
+  // Every input handler ignores events the page made itself (dispatchEvent). Content scripts
+  // receive those too, and acting on them would let any page or iframe use the extension's
+  // clipboard access to overwrite the clipboard without the user doing anything.
   let drag: DragState | null = null;
 
   function rowAtY(d: DragState, y: number): number {
@@ -334,7 +337,7 @@ function main(): void {
   }
 
   function onMouseDown(e: MouseEvent): void {
-    if (e.button !== 0 || !matchesModifier(e)) return;
+    if (!e.isTrusted || e.button !== 0 || !matchesModifier(e)) return;
     const cell = findCell(e.target);
     const table = cell?.closest("table");
 
@@ -374,7 +377,7 @@ function main(): void {
   }
 
   function onMouseMove(e: MouseEvent): void {
-    if (!drag) return;
+    if (!drag || !e.isTrusted) return;
     e.preventDefault();
     drag.lastX = e.clientX;
     drag.lastY = e.clientY;
@@ -401,7 +404,7 @@ function main(): void {
   }
 
   function onMouseUp(e: MouseEvent): void {
-    if (!drag) return;
+    if (!drag || !e.isTrusted) return;
     e.preventDefault();
     e.stopPropagation();
     drag.lastX = e.clientX;
@@ -416,7 +419,7 @@ function main(): void {
   }
 
   function onDragKey(e: KeyboardEvent): void {
-    if (e.key !== "Escape") return;
+    if (!e.isTrusted || e.key !== "Escape") return;
     e.preventDefault();
     endDrag();
     toast("Cancelled");
@@ -438,7 +441,7 @@ function main(): void {
   window.addEventListener(
     "contextmenu",
     (e) => {
-      lastContextCell = findCell(e.target);
+      if (e.isTrusted) lastContextCell = findCell(e.target);
     },
     true,
   );
